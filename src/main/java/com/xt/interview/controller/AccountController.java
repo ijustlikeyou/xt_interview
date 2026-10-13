@@ -1,7 +1,10 @@
 package com.xt.interview.controller;
 
 import com.xt.interview.dto.AccountDTO;
+import com.xt.interview.dto.AccountPageQuery;
+import com.xt.interview.dto.PageResult;
 import com.xt.interview.service.AccountService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,18 +24,23 @@ public class AccountController {
         return ResponseEntity.ok(accountService.getAllAccounts());
     }
 
+    @GetMapping("/page")
+    public ResponseEntity<PageResult<AccountDTO>> getPage(@ModelAttribute AccountPageQuery query) {
+        return ResponseEntity.ok(accountService.getAccountsPage(query));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<AccountDTO> getById(@PathVariable Long id) {
         return ResponseEntity.ok(accountService.getAccountById(id));
     }
 
     @PostMapping
-    public ResponseEntity<AccountDTO> create(@RequestBody AccountDTO dto) {
+    public ResponseEntity<AccountDTO> create(@Valid @RequestBody AccountDTO dto) {
         return ResponseEntity.ok(accountService.createAccount(dto));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<AccountDTO> update(@PathVariable Long id, @RequestBody AccountDTO dto) {
+    public ResponseEntity<AccountDTO> update(@PathVariable Long id, @Valid @RequestBody AccountDTO dto) {
         return ResponseEntity.ok(accountService.updateAccount(id, dto));
     }
 

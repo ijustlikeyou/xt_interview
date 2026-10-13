@@ -1,13 +1,21 @@
 package com.xt.interview.service.impl;
 
 import com.xt.interview.dto.AccountDTO;
+import com.xt.interview.dto.AccountPageQuery;
+import com.xt.interview.dto.AccountPageView;
+import com.xt.interview.dto.PageResult;
 import com.xt.interview.entity.Account;
+import com.xt.interview.entity.Department;
 import com.xt.interview.repository.AccountRepository;
+import com.xt.interview.repository.DepartmentRepository;
 import com.xt.interview.service.AccountService;
 import com.xt.interview.util.MD5Util;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.data.domain.PageRequest;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -23,6 +31,9 @@ public class AccountServiceImpl implements AccountService {
 
     @Autowired
     private AccountRepository accountRepository;
+
+    @Autowired
+    private DepartmentRepository departmentRepository;
 
     @Override
     public AccountDTO createAccount(AccountDTO dto) {
@@ -41,6 +52,7 @@ public class AccountServiceImpl implements AccountService {
         account.setStatus(dto.getStatus());
         account.setIsSuper(dto.getIsSuper());
         account.setDeleted(NOT_DELETED);
+        setDepartment(account, dto.getDepartmentId());
         account = accountRepository.save(account);
         return convertToDTO(account);
     }
@@ -55,6 +67,7 @@ public class AccountServiceImpl implements AccountService {
             throw new RuntimeException("用户名已存在");
         }
 
+        setDepartment(account, dto.getDepartmentId());
         account.setUsername(dto.getUsername());
         account.setName(dto.getName());
         account.setGender(dto.getGender());
@@ -95,6 +108,13 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     @Transactional(readOnly = true)
+    public PageResult<AccountDTO> getAccountsPage(AccountPageQuery query) {
+        PageRequest pageable = PageRequest.of(query.getPage(), query.getSize());
+        return PageResult.from(accountRepository.findPage(query, pageable).map(AccountPageView::toDTO));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public AccountDTO login(String username, String password) {
         Account account = accountRepository.findByUsernameAndPasswordAndDeleted(
                 username, MD5Util.encode(password), NOT_DELETED)
@@ -103,6 +123,19 @@ public class AccountServiceImpl implements AccountService {
             throw new RuntimeException("账号已禁用");
         }
         return convertToDTO(account);
+    }
+
+    private void setDepartment(Account account, Long departmentId) {
+        if (departmentId == null) {
+            account.setDepartment(null);
+            return;
+        }
+        if (account.getDepartment() != null && departmentId.equals(account.getDepartment().getId())) {
+            return;
+        }
+        Department department = departmentRepository.findByIdAndDeleted(departmentId, NOT_DELETED)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "部门不存在或已删除"));
+        account.setDepartment(department);
     }
 
     private AccountDTO convertToDTO(Account account) {
@@ -115,6 +148,10 @@ public class AccountServiceImpl implements AccountService {
         dto.setRoleLevel(account.getRoleLevel());
         dto.setStatus(account.getStatus());
         dto.setIsSuper(account.getIsSuper());
+        if (account.getDepartment() != null) {
+            dto.setDepartmentId(account.getDepartment().getId());
+            dto.setDepartmentName(account.getDepartment().getName());
+        }
         dto.setCreateTime(account.getCreateTime());
         dto.setUpdateTime(account.getUpdateTime());
         return dto;
